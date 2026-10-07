@@ -1,5 +1,7 @@
 const { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } = require('discord.js');
 const welcomeConfig = require('../utils/welcomeConfig');
+const serverConfig = require('../utils/serverConfig');
+const cloudDashboardSync = require('../utils/cloudDashboardSync');
 const { requireAdministrator } = require('../utils/requireAdministrator');
 
 module.exports = {
@@ -21,6 +23,12 @@ module.exports = {
 
     try {
       const removed = welcomeConfig.remove(interaction.guildId);
+      const existing = serverConfig.get(interaction.guildId).welcome;
+      if (existing) {
+        await cloudDashboardSync.pushServerPatch(interaction.guildId, {
+          welcome: { ...existing, enabled: false }
+        });
+      }
       await interaction.reply({
         content: removed
           ? 'Mesajele automate de bun venit au fost dezactivate pentru acest server.'

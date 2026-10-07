@@ -14,7 +14,9 @@ function validateData(data, filePath) {
     if (!/^\d+$/.test(guildId) ||
         !guildData || typeof guildData !== 'object' ||
         !guildData.invites || typeof guildData.invites !== 'object' ||
-        !guildData.totals || typeof guildData.totals !== 'object') {
+        !guildData.totals || typeof guildData.totals !== 'object' ||
+        (guildData.vanityUses !== undefined &&
+          guildData.vanityUses !== null && !validUses(guildData.vanityUses))) {
       throw new Error(`Date invalide pentru serverul ${guildId} în baza de invitații ${filePath}.`);
     }
 
@@ -81,8 +83,9 @@ class InviteTracker {
       const previous = stored
         ? structuredClone(stored)
         : { invites: {}, totals: {} };
+      const vanityUses = await this.readVanityUses(guild);
       const currentInvites = {};
-      let changed = !stored;
+      let changed = !stored || previous.vanityUses !== vanityUses;
 
       for (const invite of fetchedInvites.values()) {
         const uses = invite.uses || 0;
@@ -105,10 +108,23 @@ class InviteTracker {
       if (JSON.stringify(previous.invites) !== JSON.stringify(currentInvites)) {
         changed = true;
       }
+
       previous.invites = currentInvites;
+      previous.vanityUses = vanityUses;
       this.data[guild.id] = previous;
       if (changed) this.persist();
     });
+  }
+
+  async readVanityUses(guild) {
+    if (typeof guild.fetchVanityData !== 'function') return null;
+    try {
+      const vanity = await guild.fetchVanityData();
+      return validUses(vanity?.uses) ? vanity.uses : null;
+    } catch (error) {
+      console.warn(`Nu am putut citi utilizările vanity URL pentru serverul ${guild.id}: ${error.message}`);
+      return null;
+    }
   }
 
   async handleMemberJoin(member) {
@@ -120,6 +136,7 @@ class InviteTracker {
         : { invites: {}, totals: {} };
       const currentInvites = {};
       const increasedInviterIds = new Set();
+      const increasedInviteCodes = [];
 
       for (const invite of fetchedInvites.values()) {
         const uses = invite.uses || 0;
@@ -134,12 +151,18 @@ class InviteTracker {
         if (increase > 0 && inviterId) {
           previous.totals[inviterId] = (previous.totals[inviterId] || 0) + increase;
           increasedInviterIds.add(inviterId);
+          increasedInviteCodes.push(invite.code);
         }
 
         currentInvites[invite.code] = { uses, inviterId };
       }
 
+      const vanityUses = await this.readVanityUses(member.guild);
+      const vanityUsed = vanityUses !== null &&
+        previous.vanityUses !== undefined && vanityUses > previous.vanityUses;
+      const inviteCode = increasedInviteCodes.length === 1 ? increasedInviteCodes[0] : null;
       previous.invites = currentInvites;
+      previous.vanityUses = vanityUses;
       this.data[member.guild.id] = previous;
       this.persist();
 
@@ -148,10 +171,12 @@ class InviteTracker {
         : null;
 
       return {
-        inviterId: detectedInviterId,
-        inviteCount: detectedInviterId
+        inviterId: vanityUsed ? null : detectedInviterId,
+        inviteCount: vanityUsed ? 0 : detectedInviterId
           ? previous.totals[detectedInviterId] || 0
-          : null
+          : null,
+        inviteCode: vanityUsed ? null : inviteCode,
+        kind: vanityUsed ? 'vanity' : detectedInviterId && inviteCode ? 'normal' : 'unknown'
       };
     });
   }

@@ -35,7 +35,12 @@ test('urmărește invitațiile, totalurile inviter-ului și persistența după r
   ]);
 
   const attribution = await tracker.handleMemberJoin({ guild, id: '30000000000000003' });
-  assert.deepEqual(attribution, { inviterId, inviteCount: 4 });
+  assert.deepEqual(attribution, {
+    inviterId,
+    inviteCount: 4,
+    inviteCode: 'invite-code',
+    kind: 'normal'
+  });
 
   const restartedTracker = new InviteTracker(filePath);
   restartedTracker.initialize();
@@ -45,7 +50,12 @@ test('urmărește invitațiile, totalurile inviter-ului și persistența după r
     ]),
     id: '40000000000000004'
   });
-  assert.deepEqual(nextAttribution, { inviterId, inviteCount: 5 });
+  assert.deepEqual(nextAttribution, {
+    inviterId,
+    inviteCount: 5,
+    inviteCode: 'invite-code',
+    kind: 'normal'
+  });
 });
 
 test('nu atribuie o invitație când mai multe persoane au folosit linkuri diferite', async (t) => {
@@ -65,5 +75,31 @@ test('nu atribuie o invitație când mai multe persoane au folosit linkuri difer
   ]);
 
   const attribution = await tracker.handleMemberJoin({ guild, id: '40000000000000004' });
-  assert.deepEqual(attribution, { inviterId: null, inviteCount: null });
+  assert.deepEqual(attribution, {
+    inviterId: null,
+    inviteCount: null,
+    inviteCode: null,
+    kind: 'unknown'
+  });
+});
+
+test('identifică utilizarea vanity URL după diferența de utilizări', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'invite-tracker-test-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  let vanityUses = 7;
+  const guild = {
+    ...createGuild([]),
+    fetchVanityData: async () => ({ uses: vanityUses })
+  };
+  const tracker = new InviteTracker(path.join(directory, 'invites.json'));
+  tracker.initialize();
+  await tracker.syncGuild(guild);
+  vanityUses += 1;
+  const attribution = await tracker.handleMemberJoin({ guild, id: '50000000000000005' });
+  assert.deepEqual(attribution, {
+    inviterId: null,
+    inviteCount: 0,
+    inviteCode: null,
+    kind: 'vanity'
+  });
 });

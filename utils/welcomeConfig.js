@@ -47,6 +47,10 @@ function createWelcomeConfig(
     return load()[guildId] || null;
   }
 
+  function getAll() {
+    return load();
+  }
+
   async function set(guildId, { channelId, imageBuffer = null, imageExtension = null }) {
     if (!/^\d{17,20}$/.test(guildId) || !/^\d{17,20}$/.test(channelId)) {
       throw new Error('ID-ul serverului sau al canalului Discord nu este valid.');
@@ -54,7 +58,7 @@ function createWelcomeConfig(
 
     const data = load();
     const previousImageFile = data[guildId]?.imageFile || null;
-    let imageFile = null;
+    let imageFile = previousImageFile;
 
     if (imageBuffer) {
       if (!Buffer.isBuffer(imageBuffer) || !supportedExtensions.has(imageExtension)) {
@@ -104,7 +108,7 @@ function createWelcomeConfig(
     return path.join(imagesDirectory, imageFile);
   }
 
-  return { get, getImagePath, remove, set };
+  return { get, getAll, getImagePath, remove, set };
 }
 
 module.exports = createWelcomeConfig();

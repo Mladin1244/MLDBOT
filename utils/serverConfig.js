@@ -42,6 +42,27 @@ function createServerConfig(filePath = path.resolve('./data/server-config.json')
             !['.jpg', '.png', '.gif', '.webp'].includes(path.extname(config.levelImageFile)))) {
         throw new Error(`Imaginea de level-up este invalidă pentru serverul ${guildId}.`);
       }
+
+      for (const module of ['welcome', 'leave']) {
+        const settings = config[module];
+        if (settings === undefined) continue;
+        if (!settings || typeof settings !== 'object' || Array.isArray(settings) ||
+            typeof settings.enabled !== 'boolean' ||
+            ((settings.channelId ?? '') !== '' && !/^\d{17,20}$/.test(settings.channelId)) ||
+            typeof (settings.emoji ?? '') !== 'string' ||
+            !settings.types || typeof settings.types !== 'object' || Array.isArray(settings.types)) {
+          throw new Error(`Configurația ${module} este invalidă pentru serverul ${guildId}.`);
+        }
+        for (const [type, message] of Object.entries(settings.types)) {
+          if (!message || typeof message !== 'object' ||
+              typeof message.messageText !== 'string' || message.messageText.length > 2000 ||
+              typeof message.embedEnabled !== 'boolean' ||
+              typeof message.bannerEnabled !== 'boolean' ||
+              !Array.isArray(message.bannerLayers) || message.bannerLayers.length > 15) {
+            throw new Error(`Mesajul ${type} din modulul ${module} este invalid pentru serverul ${guildId}.`);
+          }
+        }
+      }
     }
   }
 

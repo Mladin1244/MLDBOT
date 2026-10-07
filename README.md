@@ -8,8 +8,9 @@ Bot Discord construit cu Node.js 18+ și discord.js 14, cu funcții de casino, l
 2. Activează **Server Members Intent** și **Message Content Intent** în pagina **Bot** a aplicației.
 3. Copiază `.env.example` în `.env` și completează tokenul Discord și ID-ul aplicației. `DISCORD_TOKEN` este variabila recomandată; `TOKEN` este acceptată ca alternativă. `OWNER_IDS` este opțional și poate conține ID-urile ownerilor separate prin virgulă.
 4. Configurează funcțiile din Discord: `/setup-verify` cere rolul de verificare, `/setup-ticket` cere categoria tichetelor, rolul staff și canalele necesare, iar `/setup-level` cere canalul pentru anunțurile de level-up și acceptă un banner opțional.
-5. Mesajele de bun venit se configurează direct din Discord cu `/setup-welcome`: selectează canalul și, opțional, încarcă o imagine. Dacă nu alegi imagine, se folosește bannerul local `assets/mldbot-banner.jpg`. Folosește `/disable-welcome` pentru a opri mesajele. Botul trebuie să aibă permisiunea **Manage Server** (pentru citirea invitațiilor) și permisiunea de a trimite mesaje în canalele configurate.
-6. Instalează dependențele și publică toate comenzile:
+5. Mesajele de bun venit se configurează în dashboardul web sau direct din Discord cu `/setup-welcome`. Configurația legacy `data/welcome-config.json` și imaginile sale rămân compatibile; `/disable-welcome` dezactivează și setarea sincronizată, dacă există.
+6. Pentru Welcome, Leave și atribuirea invitațiilor, activează **Server Members Intent** și **Guild Invites Intent** în Developer Portal. Acordă botului **Manage Server** (citirea și urmărirea invitațiilor), **View Channel**, **Send Messages**, **Embed Links**, **Attach Files** și **Add Reactions** doar în canalele în care sunt folosite funcțiile.
+7. Instalează dependențele și publică toate comenzile:
 
 ```sh
 npm install
@@ -21,10 +22,10 @@ npm start
 
 Dashboard-ul din proiectul `sitebot` rulează pe Cloudflare Workers și salvează sesiunile OAuth și configurările în D1. Botul poate rămâne pe Railway; pentru sincronizarea securizată configurează în variabilele Railway:
 
-- `DASHBOARD_SYNC_URL=https://botsite.oltenia.xyz/api/internal/configs` (înlocuiește domeniul dacă folosești altul).
+- `DASHBOARD_SYNC_URL=https://sitebot.oltenia.xyz/api/internal/configs` (înlocuiește domeniul dacă folosești altul).
 - `DASHBOARD_SYNC_SECRET` cu aceeași valoare configurată ca secret în Worker-ul Cloudflare.
 
-După publicarea acestei versiuni, botul preia setările de dashboard la pornire și apoi periodic, actualizează fișierele locale și confirmă sincronizarea în Cloudflare. Comenzile `/setup-verify`, `/setup-ticket` și `/setup-level` sincronizează înapoi câmpurile aferente. Nu pune tokenul botului sau secretul de sincronizare în cod ori în repository.
+După publicarea acestei versiuni, botul preia setările de dashboard la pornire și apoi periodic, actualizează fișierele locale și confirmă sincronizarea în Cloudflare. Comenzile `/setup-verify`, `/setup-ticket`, `/setup-level` și `/setup-welcome` sincronizează înapoi câmpurile aferente. Bannerele din dashboard sunt randate la 1024×320 cu `@napi-rs/canvas`, iar imaginile se citesc din bucketul R2 prin endpointul Worker autentificat cu `DASHBOARD_SYNC_SECRET`. Nu pune tokenul botului sau secretul de sincronizare în cod ori în repository.
 
 Comenzile slash sunt publicate global, iar propagarea lor poate dura. Pentru actualizare rapidă într-un server, poți seta temporar `GUILD_ID` în mediul procesului când publici comenzile. ID-ul aplicației poate fi furnizat drept `CLIENT_ID` sau `APPLICATION_ID`.
 

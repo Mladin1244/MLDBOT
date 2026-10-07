@@ -6,6 +6,8 @@ const {
   SlashCommandBuilder
 } = require('discord.js');
 const welcomeConfig = require('../utils/welcomeConfig');
+const serverConfig = require('../utils/serverConfig');
+const cloudDashboardSync = require('../utils/cloudDashboardSync');
 const { requireAdministrator } = require('../utils/requireAdministrator');
 
 const IMAGE_TYPES = new Map([
@@ -84,6 +86,37 @@ module.exports = {
       await welcomeConfig.set(interaction.guildId, {
         channelId: channel.id,
         ...uploadedImage
+      });
+      const previous = serverConfig.get(interaction.guildId).welcome || {};
+      const types = Object.fromEntries(
+        ['normal', 'vanity', 'unknown', 'bot'].map((type) => [type, {
+          messageText: type === 'normal'
+            ? '%member_mention% a fost invitat de %inviter% și are acum %inviter_invites% invitații.'
+            : '',
+          embedEnabled: type === 'normal',
+          embedJson: {
+            title: '',
+            description: type === 'normal'
+              ? '%member_mention% a fost invitat de %inviter% și are acum %inviter_invites% invitații.'
+              : '',
+            color: '#5865f2',
+            footer: '',
+            thumbnailMember: true,
+            imageBanner: true
+          },
+          bannerEnabled: type === 'normal',
+          bannerLayers: [],
+          bannerImageKey: null,
+          ...(previous.types?.[type] || {})
+        }])
+      );
+      await cloudDashboardSync.pushServerPatch(interaction.guildId, {
+        welcome: {
+          enabled: true,
+          channelId: channel.id,
+          emoji: previous.emoji || '',
+          types
+        }
       });
 
       await interaction.editReply({
