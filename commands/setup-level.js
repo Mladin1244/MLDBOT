@@ -7,6 +7,7 @@ const {
 const fs = require('node:fs');
 const levelSystem = require('../utils/levelSystem');
 const serverConfig = require('../utils/serverConfig');
+const cloudDashboardSync = require('../utils/cloudDashboardSync');
 const { requireAdministrator } = require('../utils/requireAdministrator');
 
 const IMAGE_TYPES = new Map([
@@ -82,10 +83,12 @@ module.exports = {
         );
       }
 
-      serverConfig.update(interaction.guildId, {
+      const patch = {
         levelChannelId: channel.id,
         levelImageFile: savedImage?.filename || null
-      });
+      };
+      serverConfig.update(interaction.guildId, patch);
+      await cloudDashboardSync.pushServerPatch(interaction.guildId, patch);
       configSaved = true;
 
       if (previousImage && previousImage !== savedImage?.filename) {

@@ -12,6 +12,7 @@ const {
 const fs = require("node:fs");
 const path = require("node:path");
 const serverConfig = require("../utils/serverConfig");
+const cloudDashboardSync = require("../utils/cloudDashboardSync");
 const { requireAdministrator } = require("../utils/requireAdministrator");
 
 function getButtonEmoji() {
@@ -54,10 +55,12 @@ module.exports = {
       if (!(role instanceof Role) || role.id === interaction.guild.id) {
         throw new Error("A valid, assignable verification role must be selected.");
       }
-      serverConfig.update(interaction.guildId, {
+      const patch = {
         verifyChannelId: interaction.channel.id,
         verifyRoleId: role.id
-      });
+      };
+      serverConfig.update(interaction.guildId, patch);
+      await cloudDashboardSync.pushServerPatch(interaction.guildId, patch);
 
       const embed = new EmbedBuilder()
         .setColor(0x0526da)

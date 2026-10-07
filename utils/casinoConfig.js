@@ -14,7 +14,7 @@ function validateSettings(guildId, settings) {
       !['blackjack', 'poker', 'craps'].every((game) => typeof settings.games[game] === 'boolean') ||
       !Number.isSafeInteger(settings.minBet) || settings.minBet < 1 ||
       !Number.isSafeInteger(settings.maxBet) || settings.maxBet < settings.minBet ||
-      settings.maxBet > 1_000_000_000) {
+      settings.maxBet > Number.MAX_SAFE_INTEGER) {
     throw new Error(`Configurație de cazino invalidă pentru serverul ${guildId} în ${filePath}.`);
   }
 }
@@ -35,4 +35,42 @@ function get(guildId) {
   return structuredClone(settings);
 }
 
-module.exports = { DEFAULT_SETTINGS, get };
+function getAll() {
+  if (!fs.existsSync(filePath)) return {};
+  const configs = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  if (!configs || typeof configs !== 'object' || Array.isArray(configs)) {
+    throw new Error(`Structură invalidă în configurația cazinoului ${filePath}.`);
+  }
+  for (const [guildId, settings] of Object.entries(configs)) {
+    if (!/^\d{17,20}$/.test(guildId)) {
+      throw new Error(`ID-ul serverului ${guildId} este invalid în configurația cazinoului ${filePath}.`);
+    }
+    validateSettings(guildId, settings);
+  }
+  return structuredClone(configs);
+}
+
+function set(guildId, settings) {
+  if (typeof guildId !== 'string' || !/^\d{17,20}$/.test(guildId)) {
+    throw new Error('ID-ul serverului Discord nu este valid pentru configurația cazinoului.');
+  }
+  validateSettings(guildId, settings);
+  const configs = fs.existsSync(filePath)
+    ? JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    : {};
+  if (!configs || typeof configs !== 'object' || Array.isArray(configs)) {
+    throw new Error(`Structură invalidă în configurația cazinoului ${filePath}.`);
+  }
+  configs[guildId] = structuredClone(settings);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporaryPath, JSON.stringify(configs, null, 2), { encoding: 'utf8', flag: 'wx' });
+    fs.renameSync(temporaryPath, filePath);
+  } catch (error) {
+    fs.rmSync(temporaryPath, { force: true });
+    throw error;
+  }
+}
+
+module.exports = { DEFAULT_SETTINGS, get, getAll, set };

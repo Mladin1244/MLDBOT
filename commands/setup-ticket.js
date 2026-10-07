@@ -11,6 +11,7 @@ const {
 const fs = require("node:fs");
 const path = require("node:path");
 const serverConfig = require("../utils/serverConfig");
+const cloudDashboardSync = require("../utils/cloudDashboardSync");
 const { requireAdministrator } = require("../utils/requireAdministrator");
 
 const imagePath = path.join(__dirname, "..", "assets", "mldbot-ticket.jpg");
@@ -60,13 +61,15 @@ module.exports = {
       const logChannel = interaction.options.getChannel("loguri");
       const panelChannel = interaction.options.getChannel("panou") || interaction.channel;
 
-      serverConfig.update(interaction.guildId, {
+      const patch = {
         ticketCategoryId: category.id,
         staffRoleIds: [staffRole.id],
         suggestionsChannelId: suggestionsChannel.id,
         ticketLogChannelId: logChannel?.id || null,
         ticketPanelChannelId: panelChannel.id
-      });
+      };
+      serverConfig.update(interaction.guildId, patch);
+      await cloudDashboardSync.pushServerPatch(interaction.guildId, patch);
 
       const embed = new EmbedBuilder()
         .setColor(0x0526da)

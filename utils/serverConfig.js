@@ -64,6 +64,10 @@ function createServerConfig(filePath = path.resolve('./data/server-config.json')
     return load()[guildId] || {};
   }
 
+  function getAll() {
+    return load();
+  }
+
   function update(guildId, patch) {
     if (!/^\d{17,20}$/.test(guildId)) {
       throw new Error('ID-ul serverului Discord nu este valid.');
@@ -74,7 +78,7 @@ function createServerConfig(filePath = path.resolve('./data/server-config.json')
     return configs[guildId];
   }
 
-  return { get, update };
+  return { get, getAll, update };
 }
 
 module.exports = createServerConfig();

@@ -48,6 +48,20 @@ test('loads guild-specific casino settings and rejects malformed settings', () =
   assert.throws(() => casinoConfig.get('12345678901234567'), /Configurație de cazino invalidă/);
 });
 
+test('stores valid casino settings using the full safe integer wager range', () => {
+  casinoConfig.set('12345678901234567', {
+    games: { blackjack: false, poker: true, craps: true },
+    minBet: 1,
+    maxBet: Number.MAX_SAFE_INTEGER
+  });
+
+  assert.deepEqual(casinoConfig.get('12345678901234567'), {
+    games: { blackjack: false, poker: true, craps: true },
+    minBet: 1,
+    maxBet: Number.MAX_SAFE_INTEGER
+  });
+});
+
 test('rejects disabled casino games and wagers outside guild limits', async () => {
   const filePath = process.env.CASINO_CONFIG_FILE;
   fs.writeFileSync(filePath, JSON.stringify({

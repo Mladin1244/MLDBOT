@@ -19,9 +19,12 @@ npm start
 
 ### Dashboard web
 
-Dashboard-ul separat din proiectul `sitebot` poate configura setările per server după autentificare Discord. Configurează în mediul procesului site-ului `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN` și `BOT_DATA_DIR` (calea completă către folderul `data` al botului). În Discord Developer Portal, înregistrează redirect URI-ul exact din `DISCORD_REDIRECT_URI`, de exemplu `https://siteul-tau.example/oauth/callback`. Pe un server public setează `NODE_ENV=production`, folosește HTTPS și păstrează secretul OAuth și tokenul botului doar în mediul privat al serverului.
+Dashboard-ul din proiectul `sitebot` rulează pe Cloudflare Workers și salvează sesiunile OAuth și configurările în D1. Botul poate rămâne pe Railway; pentru sincronizarea securizată configurează în variabilele Railway:
 
-Rulează dashboard-ul și botul cu același folder de date. Dashboard-ul actualizează `server-config.json` și `casino-config.json`; modificările la jocuri și limitele mizelor se aplică imediat ce botul citește configurația următoare.
+- `DASHBOARD_SYNC_URL=https://botsite.oltenia.xyz/api/internal/configs` (înlocuiește domeniul dacă folosești altul).
+- `DASHBOARD_SYNC_SECRET` cu aceeași valoare configurată ca secret în Worker-ul Cloudflare.
+
+După publicarea acestei versiuni, botul preia setările de dashboard la pornire și apoi periodic, actualizează fișierele locale și confirmă sincronizarea în Cloudflare. Comenzile `/setup-verify`, `/setup-ticket` și `/setup-level` sincronizează înapoi câmpurile aferente. Nu pune tokenul botului sau secretul de sincronizare în cod ori în repository.
 
 Comenzile slash sunt publicate global, iar propagarea lor poate dura. Pentru actualizare rapidă într-un server, poți seta temporar `GUILD_ID` în mediul procesului când publici comenzile. ID-ul aplicației poate fi furnizat drept `CLIENT_ID` sau `APPLICATION_ID`.
 

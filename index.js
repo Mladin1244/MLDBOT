@@ -10,6 +10,7 @@ const disableWelcomeCommand = require('./commands/disable-welcome');
 const setupLevelCommand = require('./commands/setup-level');
 const levelSystem = require('./utils/levelSystem');
 const serverConfig = require('./utils/serverConfig');
+const cloudDashboardSync = require('./utils/cloudDashboardSync');
 const { handleTicketInteraction } = require('./ticket-interactions');
 const { handlePostInteraction } = require('./post-interactions');
 
@@ -120,6 +121,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 db.initialize();
 levelSystem.initialize();
+cloudDashboardSync.start();
 client.login(token).catch((error) => {
   console.error('Conectarea la Discord a eșuat:', error);
   process.exitCode = 1;
