@@ -18,7 +18,22 @@ test('persistă setările selectate pe server, păstrând configurațiile indepe
     ticketCategoryId: '40000000000000004',
     staffRoleIds: ['50000000000000005'],
     suggestionsChannelId: '60000000000000006',
-    ticketLogChannelId: null
+    ticketLogChannelId: null,
+    ticketPanelTitle: 'Ajutor',
+    ticketPanelPrompt: 'Alege un subiect',
+    ticketTypes: [
+      {
+        key: 'bug',
+        label: 'Bug',
+        description: 'Raportează un bug',
+        emoji: '🐞',
+        details: 'Descrie problema.',
+        action: 'ticket'
+      }
+    ],
+    verifyTitle: 'Verificare',
+    verifyDescription: 'Apasă butonul.',
+    verifyEmoji: '✅'
   });
   settings.update(secondServerId, {
     verifyRoleId: '70000000000000007'
@@ -30,7 +45,22 @@ test('persistă setările selectate pe server, păstrând configurațiile indepe
     ticketCategoryId: '40000000000000004',
     staffRoleIds: ['50000000000000005'],
     suggestionsChannelId: '60000000000000006',
-    ticketLogChannelId: null
+    ticketLogChannelId: null,
+    ticketPanelTitle: 'Ajutor',
+    ticketPanelPrompt: 'Alege un subiect',
+    ticketTypes: [
+      {
+        key: 'bug',
+        label: 'Bug',
+        description: 'Raportează un bug',
+        emoji: '🐞',
+        details: 'Descrie problema.',
+        action: 'ticket'
+      }
+    ],
+    verifyTitle: 'Verificare',
+    verifyDescription: 'Apasă butonul.',
+    verifyEmoji: '✅'
   });
   assert.deepEqual(restartedSettings.get(secondServerId), {
     verifyRoleId: '70000000000000007'
@@ -46,5 +76,18 @@ test('refuză salvarea unui ID de canal sau rol invalid', (t) => {
   assert.throws(
     () => settings.update('10000000000000001', { suggestionsChannelId: 'invalid-channel' }),
     /suggestionsChannelId/
+  );
+  assert.throws(
+    () => settings.update('10000000000000001', {
+      ticketTypes: [{
+        key: 'bug',
+        label: 'Bug',
+        description: 'Bug',
+        emoji: '🐞',
+        details: '',
+        action: 'ticket'
+      }]
+    }),
+    /categorie de tichet/
   );
 });

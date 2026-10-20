@@ -12,19 +12,7 @@ const {
 } = require("discord.js");
 const setupTicketCommand = require("./commands/setup-ticket");
 const serverConfig = require("./utils/serverConfig");
-
-const TICKET_TYPES = {
-  bug: {
-    channelPrefix: "bug",
-    title: "🐞 Game Bug Ticket",
-    details: "Please provide a description, steps to reproduce, and screenshots or video.",
-  },
-  cheater: {
-    channelPrefix: "cheater",
-    title: "🚨 Game Cheater Ticket",
-    details: "Please provide the cheater's nickname, proof, screenshots or video, and the date/time.",
-  },
-};
+const { requireAdministrator } = require("./utils/requireAdministrator");
 
 const ticketCreationLocks = new Map();
 const ticketPermissions = [
@@ -46,8 +34,14 @@ function getTicketOwner(channel) {
 }
 
 function getTicketType(channel) {
-  const match = channel.topic?.match(/(?:^|;)ticket-type=(bug|cheater)(?:;|$)/);
+  const match = channel.topic?.match(/(?:^|;)ticket-type=([a-z0-9_-]{1,50})(?:;|$)/);
   return match?.[1] ?? null;
+}
+
+function getConfiguredTicketType(guildId, key) {
+  return setupTicketCommand
+    .getTicketTypes(serverConfig.get(guildId))
+    .find((type) => type.key === key);
 }
 
 function isClosing(channel) {
@@ -188,11 +182,17 @@ async function createSupportTicket(interaction, type) {
       return;
     }
 
-    const config = TICKET_TYPES[type];
-    const username = sanitizeUsername(interaction.user.username, interaction.user.id);
+    const config = getConfiguredTicketType(interaction.guildId, type);
+    if (!config || config.action !== "ticket") {
+      await interaction.editReply("Categoria de tichet necunoscută. Configurează din nou /setup-ticket.");
+      return;
+    }
+    const channelPrefix = config.key.replace(/_/g, "-").slice(0, 50);
+    const username = sanitizeUsername(interaction.user.username, interaction.user.id)
+      .slice(0, 99 - channelPrefix.length);
     const staffMentions = staffRoles.map((role) => role.toString()).join(" ");
     const channel = await interaction.guild.channels.create({
-      name: `${config.channelPrefix}-${username}`,
+      name: `${channelPrefix}-${username}`,
       type: ChannelType.GuildText,
       parent: categoryId,
       topic: `ticket-owner=${interaction.user.id};ticket-type=${type}`,
@@ -226,7 +226,7 @@ async function createSupportTicket(interaction, type) {
 
     const ticketEmbed = new EmbedBuilder()
       .setColor(0x0526da)
-      .setTitle(config.title)
+      .setTitle(`${config.emoji} ${config.label} Ticket`.slice(0, 256))
       .setDescription(
         `${interaction.user} ${staffMentions}\n\n${config.details}`,
       );
@@ -251,10 +251,10 @@ async function createSupportTicket(interaction, type) {
   });
 }
 
-async function openSuggestionModal(interaction) {
+async function openSuggestionModal(interaction, type) {
   const modal = new ModalBuilder()
-    .setCustomId("suggestion_modal")
-    .setTitle("Game Suggestion")
+    .setCustomId(`suggestion_modal:${type.key}`)
+    .setTitle(Array.from(type.label).slice(0, 45).join(""))
     .addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
@@ -270,7 +270,13 @@ async function openSuggestionModal(interaction) {
   await interaction.showModal(modal);
 }
 
-async function submitSuggestion(interaction) {
+async function submitSuggestion(interaction, typeKey) {
+  const type = getConfiguredTicketType(interaction.guildId, typeKey);
+  if (!type || type.action !== "suggestion") {
+    await replyError(interaction, "Categoria de sugestii nu mai este configurată. Rulează /setup-ticket.");
+    return;
+  }
+
   const suggestionsChannelId = serverConfig.get(interaction.guildId).suggestionsChannelId;
   if (!isValidId(suggestionsChannelId)) {
     await replyError(
@@ -293,7 +299,7 @@ async function submitSuggestion(interaction) {
   const suggestionText = interaction.fields.getTextInputValue("suggestion_text");
   const suggestionEmbed = new EmbedBuilder()
     .setColor(0x0526da)
-    .setTitle("💡 New Suggestion")
+    .setTitle(`${type.emoji} ${type.label}`)
     .setDescription(suggestionText)
     .setAuthor({
       name: interaction.user.tag,
@@ -309,6 +315,85 @@ async function submitSuggestion(interaction) {
   await interaction.editReply(
     `Sugestia ta a fost trimisă în ${channel}! / Your suggestion has been posted!`,
   );
+}
+
+async function openAddCategoryModal(interaction) {
+  if (!(await requireAdministrator(interaction))) return;
+  const modal = new ModalBuilder()
+    .setCustomId("ticket_add_category_modal")
+    .setTitle("Adaugă categorie ticket")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("category_name")
+          .setLabel("Numele categoriei")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(100)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("category_emoji")
+          .setLabel("Emoji Unicode sau emoji din server")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(100)
+      )
+    );
+  await interaction.showModal(modal);
+}
+
+async function addTicketCategory(interaction) {
+  if (!(await requireAdministrator(interaction))) return;
+  if (!interaction.guild) {
+    await replyError(interaction, "Această acțiune poate fi folosită doar într-un server.");
+    return;
+  }
+
+  const settings = serverConfig.get(interaction.guildId);
+  const ticketTypes = setupTicketCommand.getTicketTypes(settings);
+  if (ticketTypes.length >= 25) {
+    await replyError(interaction, "Discord permite maximum 25 de categorii în meniu.");
+    return;
+  }
+  if (!settings.ticketPanelChannelId || !settings.ticketPanelMessageId) {
+    await replyError(interaction, "Nu am găsit panoul configurat. Rulează din nou /setup-ticket.");
+    return;
+  }
+
+  const panelChannel = await interaction.guild.channels.fetch(settings.ticketPanelChannelId);
+  if (!panelChannel?.isTextBased() || !("messages" in panelChannel)) {
+    await replyError(interaction, "Canalul panoului configurat nu mai există.");
+    return;
+  }
+  const panelMessage = await panelChannel.messages.fetch(settings.ticketPanelMessageId);
+  const type = await setupTicketCommand.createTicketType(
+    interaction.fields.getTextInputValue("category_name").trim(),
+    interaction.fields.getTextInputValue("category_emoji").trim(),
+    "ticket",
+    interaction.guild,
+    ticketTypes
+  );
+  const updatedTypes = [...ticketTypes, {
+    ...type,
+    emoji: typeof type.emoji === "string"
+      ? type.emoji
+      : `${type.emoji.animated ? "<a:" : "<:"}${type.emoji.name}:${type.emoji.id}>`
+  }];
+
+  await panelMessage.edit({
+    components: [new ActionRowBuilder().addComponents(
+      setupTicketCommand.createTicketMenu(
+        updatedTypes,
+        settings.ticketPanelPrompt || "Alege categoria / Select a category"
+      )
+    )]
+  });
+  serverConfig.update(interaction.guildId, { ticketTypes: updatedTypes });
+  await interaction.reply({
+    content: `Categoria „${type.label}” a fost adăugată în panoul de tichete.`,
+    flags: MessageFlags.Ephemeral
+  });
 }
 
 async function handleCloseButton(interaction) {
@@ -386,7 +471,11 @@ async function handleTicketInteraction(interaction) {
   const isTicketSelect =
     interaction.isStringSelectMenu() && interaction.customId === "ticket_menu";
   const isSuggestionModal =
-    interaction.isModalSubmit() && interaction.customId === "suggestion_modal";
+    interaction.isModalSubmit() && interaction.customId.startsWith("suggestion_modal");
+  const isAddCategoryButton =
+    interaction.isButton() && interaction.customId === "ticket_add_category";
+  const isAddCategoryModal =
+    interaction.isModalSubmit() && interaction.customId === "ticket_add_category_modal";
   const isTicketButton =
     interaction.isButton() &&
     [
@@ -395,7 +484,8 @@ async function handleTicketInteraction(interaction) {
       "ticket_close_cancel",
     ].includes(interaction.customId);
 
-  if (!isTicketCommand && !isTicketSelect && !isSuggestionModal && !isTicketButton) {
+  if (!isTicketCommand && !isTicketSelect && !isSuggestionModal &&
+      !isAddCategoryButton && !isAddCategoryModal && !isTicketButton) {
     return false;
   }
 
@@ -404,9 +494,10 @@ async function handleTicketInteraction(interaction) {
       await setupTicketCommand.execute(interaction);
     } else if (isTicketSelect) {
       const selectedType = interaction.values[0];
-      if (selectedType === "suggestion") {
-        await openSuggestionModal(interaction);
-      } else if (TICKET_TYPES[selectedType]) {
+      const type = getConfiguredTicketType(interaction.guildId, selectedType);
+      if (type?.action === "suggestion") {
+        await openSuggestionModal(interaction, type);
+      } else if (type?.action === "ticket") {
         if (!interaction.guild) {
           throw new Error("Ticket creation is only available in a server.");
         }
@@ -418,7 +509,14 @@ async function handleTicketInteraction(interaction) {
       if (!interaction.guild) {
         throw new Error("Suggestions can only be submitted in a server.");
       }
-      await submitSuggestion(interaction);
+      const typeKey = interaction.customId.startsWith("suggestion_modal:")
+        ? interaction.customId.slice("suggestion_modal:".length)
+        : "suggestion";
+      await submitSuggestion(interaction, typeKey);
+    } else if (isAddCategoryButton) {
+      await openAddCategoryModal(interaction);
+    } else if (isAddCategoryModal) {
+      await addTicketCategory(interaction);
     } else if (interaction.customId === "ticket_close") {
       await handleCloseButton(interaction);
     } else if (interaction.customId === "ticket_close_confirm") {
@@ -433,7 +531,9 @@ async function handleTicketInteraction(interaction) {
     console.error("Ticket interaction failed:", error);
     await replyError(
       interaction,
-      "A ticket action failed. Check that the bot has the required channel permissions and that the ticket configuration is valid.",
+      error instanceof Error
+        ? error.message
+        : "A ticket action failed. Check that the bot has the required channel permissions and that the ticket configuration is valid.",
     );
   }
 

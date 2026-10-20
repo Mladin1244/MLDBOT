@@ -1,7 +1,8 @@
+const { Events } = require('discord.js');
 const { registerCommands } = require('../utils/registerCommands');
 
 module.exports = (client) => {
-  client.once('ready', async () => {
+  client.once(Events.ClientReady, async () => {
     console.log(`Botul este conectat ca ${client.user.tag}.`);
     try {
       const count = await registerCommands({

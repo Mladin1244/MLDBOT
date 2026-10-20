@@ -17,6 +17,7 @@ function createServerConfig(filePath = path.resolve('./data/server-config.json')
         'verifyRoleId',
         'ticketCategoryId',
         'ticketPanelChannelId',
+        'ticketPanelMessageId',
         'suggestionsChannelId',
         'ticketLogChannelId',
         'levelChannelId'
@@ -33,6 +34,44 @@ function createServerConfig(filePath = path.resolve('./data/server-config.json')
             config.staffRoleIds.some((roleId) =>
               typeof roleId !== 'string' || !/^\d{17,20}$/.test(roleId)))) {
         throw new Error(`Lista rolurilor staff este invalidă pentru serverul ${guildId}.`);
+      }
+
+      for (const [field, maxLength] of [
+        ['verifyTitle', 256],
+        ['verifyDescription', 4000],
+        ['verifyEmoji', 100],
+        ['ticketPanelTitle', 256],
+        ['ticketPanelDescription', 4000],
+        ['ticketPanelPrompt', 150]
+      ]) {
+        const value = config[field];
+        if (value !== undefined &&
+            (typeof value !== 'string' || value.length > maxLength)) {
+          throw new Error(`Câmpul ${field} este invalid pentru serverul ${guildId}.`);
+        }
+      }
+
+      if (config.ticketTypes !== undefined) {
+        if (!Array.isArray(config.ticketTypes) || config.ticketTypes.length < 1 ||
+            config.ticketTypes.length > 25) {
+          throw new Error(`Lista categoriilor de tichete este invalidă pentru serverul ${guildId}.`);
+        }
+        const ticketTypeKeys = new Set();
+        for (const type of config.ticketTypes) {
+          if (!type || typeof type !== 'object' || Array.isArray(type) ||
+              typeof type.key !== 'string' || !/^[a-z0-9_-]{1,50}$/.test(type.key) ||
+              ticketTypeKeys.has(type.key) ||
+              typeof type.label !== 'string' || !type.label || type.label.length > 100 ||
+              typeof type.description !== 'string' || !type.description ||
+              type.description.length > 100 ||
+              typeof type.emoji !== 'string' || !type.emoji || type.emoji.length > 100 ||
+              typeof type.details !== 'string' || type.details.length > 1500 ||
+              !['ticket', 'suggestion'].includes(type.action) ||
+              (type.action === 'ticket' && !type.details)) {
+            throw new Error(`O categorie de tichet este invalidă pentru serverul ${guildId}.`);
+          }
+          ticketTypeKeys.add(type.key);
+        }
       }
 
       if (config.levelImageFile !== undefined && config.levelImageFile !== null &&

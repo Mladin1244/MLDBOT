@@ -46,8 +46,8 @@ Nu publica și nu partaja fișierul `.env`. Imaginile MLDBOT folosite implicit s
 
 ### Verificare, tichete și mesaje
 
-- `/setup-verify rol:<rol>` salvează rolul pentru server și publică mesajul de verificare; butonul atribuie acel rol.
-- `/setup-ticket categorie:<categorie> staff:<rol> sugestii:<canal> [loguri] [panou]` salvează setările și publică panoul pentru bug-uri, cheateri și sugestii.
+- `/setup-verify rol:<rol> [titlu] [text] [imagine] [emoji]` salvează rolul pentru server și publică mesajul de verificare personalizat; emojiul poate fi Unicode sau un emoji personalizat al serverului, iar imaginea se încarcă direct în comandă.
+- `/setup-ticket categorie:<categorie> staff:<rol> sugestii:<canal> nume1:<nume> emoji1:<emoji> [nume2] [emoji2] [tip2] [nume3] [emoji3] [tip3] [loguri] [panou] [titlu] [prompt] [text] [imagine]` cere prima categorie și permite încă două opționale. Pentru fiecare categorie, setezi separat numele și emojiul; `tip2`/`tip3` pot fi `ticket` sau `suggestion`. După publicarea panoului, butonul privat **➕ Adaugă categorie** deschide un formular pentru categorii suplimentare și actualizează meniul existent. Emojiurile personalizate trebuie să aparțină serverului.
 - Tichetele sunt private, iar autorul și staff-ul le pot închide.
 - `/post` ghidează administratorul la publicarea unui mesaj cu imagine opțională.
 - `/setup-welcome` selectează canalul și imaginea pentru mesajele automate, iar `/disable-welcome` dezactivează funcția. Configurația este separată pentru fiecare server și salvată în `data/welcome-config.json`.
